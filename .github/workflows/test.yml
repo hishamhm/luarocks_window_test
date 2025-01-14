@@ -1,0 +1,64 @@
+name: Test
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches:
+    - main
+  push:
+    branches:
+      - main
+      - add_windows_unittests
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        neovim: [v0.10.0]
+        os: ["windows-latest"]
+        luaVersion:
+        - "5.1"
+        - "luajit"
+        include:
+          - os: "windows-latest"
+            toolchain: "msvc"
+            luaVersion: "5.1"
+          - os: "windows-latest"
+            toolchain: "mingw"  # unused, other than for display in the UI
+            luaVersion: "luajit"
+
+    runs-on: ${{ matrix.os }}
+    name: "OS: ${{ matrix.os }} - Neovim: ${{ matrix.neovim }}"
+
+    steps:
+    - name: Setup MSVC
+      # the 'hishamhm/gh-actions-lua' step requires msvc to build PuC Rio Lua
+      # versions on Windows (LuaJIT will be build using MinGW/gcc).
+      if: ${{ matrix.toolchain == 'msvc' }}
+      uses: ilammy/msvc-dev-cmd@v1
+
+    - uses: leafo/gh-actions-lua@master
+      with:
+        # Neovim is compiled with LuaJIT so we might as well match. But it
+        # doesn't look like we can match it exactly.
+        #
+        # Reference:
+        #    https://github.com/leafo/gh-actions-lua/issues/49#issuecomment-2295071198
+        #
+        luaVersion: "luajit-openresty"
+
+    - uses: hishamhm/gh-actions-luarocks@v5
+      with:
+        luarocksVersion: "3.11.0"
+
+    - name: Explicit luasystem install
+      run: |
+        luarocks --verbose install luasystem --local
+
+      uses: actions/checkout@v4
+      with:
+        repository: "lunarmodules/luasystem"
+
+    - name: Prepare
+      run: |
+        luarocks --verbose test luasystem-scm-0.rockspec --prepare
