@@ -14,21 +14,18 @@ jobs:
   test:
     strategy:
       matrix:
-        neovim: [v0.10.0]
-        os: ["windows-latest"]
-        luaVersion:
-        - "5.1"
-        - "luajit"
         include:
-          - os: "windows-latest"
-            toolchain: "msvc"
-            luaVersion: "5.1"
-          - os: "windows-latest"
-            toolchain: "mingw"  # unused, other than for display in the UI
-            luaVersion: "luajit"
+        - os: "windows-latest"
+          toolchain: "msvc"
+          luaVersion: "5.1"
+          neovim: "v0.10.0"
+        - os: "windows-latest"
+          toolchain: "mingw"  # unused, other than for display in the UI
+          luaVersion: "luajit"
+          neovim: "v0.10.0"
 
     runs-on: ${{ matrix.os }}
-    name: "OS: ${{ matrix.os }} - Neovim: ${{ matrix.neovim }}"
+    name: "${{ matrix.os }} ${{ matrix.toolchain }}, Lua ${{ matrix.luaVersion }}, Neovim: ${{ matrix.neovim }}"
 
     steps:
     - name: Setup MSVC
@@ -37,28 +34,18 @@ jobs:
       if: ${{ matrix.toolchain == 'msvc' }}
       uses: ilammy/msvc-dev-cmd@v1
 
-    - uses: leafo/gh-actions-lua@master
+    - uses: luarocks/gh-actions-lua@master
       with:
-        # Neovim is compiled with LuaJIT so we might as well match. But it
-        # doesn't look like we can match it exactly.
-        #
-        # Reference:
-        #    https://github.com/leafo/gh-actions-lua/issues/49#issuecomment-2295071198
-        #
-        luaVersion: "luajit-openresty"
+        luaVersion: "${{ matrix.luaVersion }}"
 
-    - uses: hishamhm/gh-actions-luarocks@v5
-      with:
-        luarocksVersion: "3.11.0"
+    - uses: luarocks/gh-actions-luarocks@v5
 
-    - name: Explicit luasystem install
+    - name: Install mega.logging
       run: |
-        luarocks --verbose install luasystem --local
+        luarocks install mega.logging
+        lua -e "require 'mega.logging'"
 
-      uses: actions/checkout@v4
-      with:
-        repository: "lunarmodules/luasystem"
-
-    - name: Prepare
+    - name: Install LuaFileSystem
       run: |
-        luarocks --verbose test luasystem-scm-0.rockspec --prepare
+        luarocks install luafilesystem
+        lua -e "require 'lfs'"
